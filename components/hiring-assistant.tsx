@@ -1,3 +1,9 @@
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "";
+
+function apiUrl(path: string) {
+  return `${API_URL}${path}`;
+}
+
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -104,8 +110,8 @@ export default function HiringAssistant() {
     setError("");
     try {
       const [a, c] = await Promise.all([
-        fetch("/api/agents").then(r => r.json()),
-        fetch("/api/calls?page=1&page_size=100").then(r => r.json()),
+        fetch(apiUrl("/api/agents")).then(r => r.json()),
+        fetch(apiUrl("/api/calls?page=1&page_size=100")).then(r => r.json()),
       ]);
       if (!a.ok) throw new Error(a.message || "Could not load agents");
       if (!c.ok) throw new Error(c.message || "Could not load calls");
@@ -132,7 +138,7 @@ export default function HiringAssistant() {
     setSubmitting(true);
     setError("");
     try {
-      const response = await fetch("/api/calls", {
+      const response = await fetch(apiUrl("/api/calls"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -379,7 +385,7 @@ function AgentManager({ agents, onCreated, show, setShow }: { agents: Agent[]; o
     try {
       let schema: Record<string, unknown>;
       try { schema = JSON.parse(schemaText); } catch { throw new Error("Result schema must be valid JSON."); }
-      const response = await fetch("/api/agents", {
+      const response = await fetch(apiUrl("/api/agents"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, language, voice_persona: voice, persona_name: persona, agent_prompt: prompt, objective, introduction, result_prompt: resultPrompt, result_schema: schema }),

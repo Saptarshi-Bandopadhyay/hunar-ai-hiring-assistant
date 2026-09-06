@@ -1,15 +1,15 @@
+"use client";
+
 const API_URL = process.env.NEXT_API_URL ?? "";
 
 function apiUrl(path: string) {
   return `${API_URL}${path}`;
 }
 
-"use client";
-
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Activity, Bot, Check, ChevronRight, Clock3, ExternalLink, Phone, Play, Plus, RefreshCw, Settings2, ShieldCheck, Sparkles, UserRound, X } from "lucide-react";
 import { Badge, Button, Card, Input, Label, Textarea } from "@/components/ui";
-import { formatDate, formatDuration, maskPhone } from "@/frontend/lib/utils";
+import { formatDate, formatDuration, maskPhone } from "@/lib/utils";
 
 type Agent = {
   id: string;

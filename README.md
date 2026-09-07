@@ -1,141 +1,127 @@
 # Hunar Hire — AI Hiring Assistant
 
-A production-oriented FDE assignment implementation for **Application 1: AI Hiring Assistant** using Hunar Voice Agents.
+A full-stack AI hiring assistant built using the Hunar Voice AI Agents API. The application helps recruiters configure AI interview agents, initiate candidate screening calls, and review structured hiring results.
 
-## What this application does
+## What it does
 
-1. Recruiter enters candidate information and a job description.
-2. Recruiter selects a Hunar voice agent.
-3. Backend creates a real outbound Hunar call.
-4. Job/candidate context is passed through Hunar `custom_data`.
-5. The application registers a `call_summary_callback_url`.
-6. Hunar sends the signed summary webhook after the call lifecycle reaches a terminal state.
-7. FastAPI verifies the HMAC signature and stores the result.
-8. Recruiter sees call status, duration, engagement, recording link and structured screening answers in the dashboard.
-
-It also includes an **Agent Manager** that can create a Hunar screening agent using the documented agent-creation fields.
+- Create AI hiring agents for specific roles.
+- Configure the agent's personality, objective, introduction, and evaluation criteria.
+- Initiate voice screening calls with candidates.
+- Pass candidate/job information to the AI agent.
+- Receive call status, recordings, summaries, and structured evaluation results.
+- Store hiring data in PostgreSQL.
+- View candidates and interview results through a recruiter dashboard.
 
 ## Architecture
 
 ```text
-┌──────────────────────────── Next.js / React / TypeScript ────────────────────────────┐
-│ Recruiter workspace                                                                  │
-│  New screening  │  Call activity  │  Voice agents                                   │
-└───────────────────────────────────────┬─────────────────────────────────────────────┘
-                                        │ /api/*
-                                        ▼
-┌────────────────────────────────── FastAPI / Python ──────────────────────────────────┐
-│ Hunar client │ webhook verification │ persistence │ validation                      │
-└───────────────┬──────────────────────────────┬──────────────────────────────────────┘
-                │                              │
-                │ X-API-Key                    │ signed HTTPS webhook
-                ▼                              ▲
-        ┌────────────────┐             ┌───────┴────────┐
-        │ Hunar Voice AI │────────────►│ /api/webhooks  │
-        └────────────────┘             └────────────────┘
-                │
-                ▼
-          Candidate phone
+Recruiter
+    |
+    v
+Next.js Frontend
+    |
+    v
+FastAPI Backend
+    |              |
+    v              v
+PostgreSQL     Hunar Voice AI
+                   |
+                   v
+             Candidate Call
+                   |
+                   v
+              Webhooks
+                   |
+                   v
+             FastAPI Backend
+````
 
-PostgreSQL is used in production; SQLite is available for local development.
+## Tech Stack
+
+* **Frontend:** Next.js, TypeScript, Tailwind CSS
+* **Backend:** FastAPI, Python
+* **Database:** PostgreSQL, SQLAlchemy, Alembic
+* **Voice AI:** Hunar Voice AI Agents API
+* **Deployment:** Vercel
+
+## Hunar Integration
+
+The backend integrates with Hunar's external API to:
+
+1. Create and configure voice agents.
+2. Initiate candidate calls.
+3. Pass structured candidate information through `custom_data`.
+4. Process asynchronous call updates through webhooks.
+
+Supported webhook events include:
+
+```text
+call_status_updated
+call_recording_done
+call_result_done
+call_summary
 ```
 
-## Important Hunar details implemented
+Webhook requests are validated using Hunar's HMAC-SHA256 signature mechanism.
 
-- API key stays server-side.
-- E.164 phone-number validation on our API.
-- `custom_data` carries company, job role and job description.
-- `call_summary_callback_url` is registered per call.
-- Hunar webhook `X-Hunar-Timestamp` and `X-Hunar-Signature` are verified.
-- Timestamp replay window defaults to 300 seconds.
-- Webhook processing is idempotent.
-- Provider call results are persisted locally and the dashboard can fall back to stored records if Hunar is temporarily unavailable.
-- The UI exposes the documented recording URL when Hunar provides one.
-- Agent result schema is configurable.
+## Local Setup
 
-## Environment variables
-
-
-Required:
-
-```bash
-HUNAR_API_KEY=...
-```
-
-Production:
-
-```bash
-DATABASE_URL=postgresql://...
-APP_BASE_URL=https://your-project.vercel.app
-```
-
-`HUNAR_WEBHOOK_API_KEYS` defaults to `HUNAR_API_KEY`. If the Hunar organization has multiple active keys that may sign webhooks, put them in a comma-separated list.
-
-
-## Local development
-
-This project uses **uv** for Python dependency/environment management and **Alembic** for database migrations.
-
-### Python backend
-
-Install uv if needed, then from the project root:
+### Backend
 
 ```bash
 uv sync
-```
-
-Run the initial migration:
-
-```bash
 uv run alembic upgrade head
-```
-
-Start FastAPI:
-
-```bash
-uv run uvicorn backend.main:app --reload --port 8000
-```
-
-Useful Alembic commands:
-
-```bash
-# Show current migration
-uv run alembic current
-
-# Create a migration after changing SQLAlchemy models
-uv run alembic revision --autogenerate -m "describe change"
-
-# Apply pending migrations
-uv run alembic upgrade head
-
-# Roll back one migration
-uv run alembic downgrade -1
+uv run uvicorn backend.main:app --reload
 ```
 
 ### Frontend
 
-In a second terminal:
-
 ```bash
+cd frontend
 npm install
 npm run dev
 ```
 
-For a simple local split setup, either change the frontend fetch base to your backend URL or run through a local reverse proxy. For webhook testing, expose the backend with a public HTTPS tunnel and set `APP_BASE_URL` to the tunnel URL.
+Configure the backend `.env`:
 
+```env
+DATABASE_URL=...
+HUNAR_API_KEY=...
+HUNAR_BASE_URL=https://api.voice.hunar.ai/external/v1
+APP_BASE_URL=https://your-public-backend-url
+```
 
+For local webhook testing, `APP_BASE_URL` must be a public HTTPS URL.
 
-## Hunar API assumptions that are explicitly documented
+## Deployment
 
-Hunar's external API documents:
+The frontend and backend are deployed as separate Vercel projects:
 
-- `GET /agents/`
-- `POST /agents/`
-- `GET /numbers/`
-- `POST /calls/`
-- `GET /calls/`
-- `GET /calls/{call_id}/`
-- call summary webhooks
-- signed webhook verification
-- structured `result` generation
-- recording URLs
+* **Backend:** repository root
+* **Frontend:** `frontend/`
+
+Configure the required environment variables in the respective Vercel projects.
+
+## Key API Endpoints
+
+```text
+GET  /api/health
+GET  /api/agents
+POST /api/agents
+PUT  /api/agents/{id}
+POST /api/calls
+GET  /api/calls
+POST /api/webhooks/hunar/*
+```
+
+## Design Approach
+
+The application keeps the responsibilities separated:
+
+* **Next.js** provides the recruiter interface.
+* **FastAPI** handles API orchestration and webhook processing.
+* **Hunar** handles the conversational voice interview.
+* **PostgreSQL** stores candidates, calls, and evaluation results.
+
+The design can be extended with authentication, background job processing, interview scheduling, richer candidate pipelines, and hiring analytics.
+
